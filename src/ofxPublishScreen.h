@@ -51,6 +51,8 @@ namespace ofxPublishScreen {
 		float getWidth() { return fbo.getWidth(); }
 		float getHeight() { return fbo.getHeight(); }
 		
+		void setImageCompressionFormat(ofImageFormat v) { format = v; }
+		
 	protected:
 		
 		ofxZmqPublisher pub;
