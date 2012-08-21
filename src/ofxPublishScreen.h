@@ -11,7 +11,12 @@ namespace ofxPublishScreen {
 		
 		void setup(int port, int w, int h, int internalformat = GL_RGB)
 		{
-			fbo.allocate(w, h, internalformat);
+			ofFbo::Settings s = ofFbo::Settings();
+			s.width = w;
+			s.height = h;
+			s.internalformat = internalformat;
+			s.useDepth = true;
+			fbo.allocate(s);
 			
 			char buf[256];
 			sprintf(buf, "tcp://*:%i", port);
@@ -19,17 +24,17 @@ namespace ofxPublishScreen {
 			pub.setHighWaterMark(2);
 			pub.bind(buf);
 			
-			format = OF_IMAGE_FORMAT_TIFF;
+			format = OF_IMAGE_FORMAT_BMP;
 		}
 		
 		void draw(int x = 0, int y = 0)
 		{
-			fbo.draw(x, y);
+			fbo.draw(x, y + fbo.getHeight(), fbo.getWidth(), -fbo.getHeight());
 		}
 		
 		void begin()
 		{
-			fbo.begin();
+			fbo.begin(false);
 			ofFloatColor bg = ofGetCurrentRenderer()->getBgColor();
 			ofClear(bg.r * 255, bg.g * 255, bg.b * 255);
 		}
