@@ -6,7 +6,7 @@ class ofxPublishScreen::Publisher::Thread : public ofThread
 {
 public:
 	
-	Thread(string host, ofImageFormat format) : format(format)
+	Thread(string host, ofImageFormat format) : format(format), last_pubs_time(0), pubs_fps(0), compress_time_ms(0)
 	{
 		pub.setHighWaterMark(1);
 		pub.bind(host);
