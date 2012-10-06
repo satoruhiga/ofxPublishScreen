@@ -2,6 +2,7 @@
 
 #include "ofMain.h"
 #include "ofxZmq.h"
+#include "ofxTurboJpeg.h"
 
 namespace ofxPublishScreen {
 	
@@ -9,7 +10,34 @@ namespace ofxPublishScreen {
 	{
 	public:
 		
-		void setup(int port, int w, int h, int internalformat = GL_RGB)
+		virtual ~Publisher();
+		
+		void setup(int port, ofImageFormat format_ = OF_IMAGE_FORMAT_BMP);
+		void dispose();
+		
+		void publishScreen();
+		
+		void publishPixels(const ofPixels &pix);
+		void publishTexture(ofTexture* inputTexture);
+		
+		void setImageCompressionFormat(ofImageFormat v) { format = v; }
+		
+		void onExit(ofEventArgs&);
+		
+	protected:
+		
+		ofImageFormat format;
+		ofxZmqPublisher pub;
+		
+		class SenderThread;
+		SenderThread *sender_thread;
+	};
+	
+	class FboPublisher : public Publisher
+	{
+	public:
+		
+		void setup(int port, int w, int h, int internalformat = GL_RGB, ofImageFormat format = OF_IMAGE_FORMAT_BMP)
 		{
 			ofFbo::Settings s = ofFbo::Settings();
 			s.width = w;
@@ -18,18 +46,12 @@ namespace ofxPublishScreen {
 			s.useDepth = true;
 			fbo.allocate(s);
 			
-			char buf[256];
-			sprintf(buf, "tcp://*:%i", port);
-			
-			pub.setHighWaterMark(2);
-			pub.bind(buf);
-			
-			format = OF_IMAGE_FORMAT_BMP;
+			Publisher::setup(port, format);
 		}
-		
+
 		void draw(int x = 0, int y = 0)
 		{
-			fbo.draw(x, y + fbo.getHeight(), fbo.getWidth(), -fbo.getHeight());
+			fbo.draw(0, 0);
 		}
 		
 		void begin()
@@ -42,58 +64,29 @@ namespace ofxPublishScreen {
 		void end()
 		{
 			fbo.end();
-			
-			ofPixels pix;
-			fbo.readToPixels(pix);
-			
-			ofBuffer data;
-			
-			// TODO: image compression on another thread
-			ofSaveImage(pix, data, format);
-			pub.send(data);
+			publishTexture(&fbo.getTextureReference());
 		}
-		
+
 		float getWidth() { return fbo.getWidth(); }
 		float getHeight() { return fbo.getHeight(); }
 		
-		void setImageCompressionFormat(ofImageFormat v) { format = v; }
-		
 	protected:
 		
-		ofxZmqPublisher pub;
 		ofFbo fbo;
-		
-		ofImageFormat format;
 	};
 	
 	class Subscriber
 	{
 	public:
 		
-		void setup(string host, int port)
-		{
-			subs.setHighWaterMark(2);
-			
-			char buf[256];
-			sprintf(buf, "tcp://%s:%i", host.c_str(), port);
-			
-			subs.connect(buf);
-		}
+		Subscriber() : receiver_thread(NULL) {}
 		
-		void update()
-		{
-			while (subs.hasWaitingMessage())
-			{
-				ofBuffer data;
-				subs.getNextMessage(data);
-				image.loadImage(data);
-			}
-		}
+		void setup(string host, int port);
+		void dispose();
 		
-		void draw(int x = 0, int y = 0)
-		{
-			image.draw(x, y);
-		}
+		void update();
+		
+		void draw(int x = 0, int y = 0);
 		
 		ofImage& getImage() { return image; }
 		
@@ -101,7 +94,11 @@ namespace ofxPublishScreen {
 		
 		ofImage image;
 		ofxZmqSubscriber subs;
+		float last_subs_time;
+		float subs_fps;
 		
+		class ReceiverThread;
+		ReceiverThread *receiver_thread;
 	};
 	
 }

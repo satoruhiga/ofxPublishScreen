@@ -7,8 +7,8 @@ ofxPublishScreen::Subscriber subs;
 //--------------------------------------------------------------
 void testApp::setup()
 {
-	ofSetFrameRate(60);
-	ofSetVerticalSync(true);
+//	ofSetFrameRate(60);
+//	ofSetVerticalSync(true);
 	
 	ofBackground(30);
 	
@@ -19,6 +19,8 @@ void testApp::setup()
 void testApp::update()
 {
 	subs.update();
+	
+	ofSetWindowTitle(ofToString(ofGetFrameRate(), 2));
 }
 
 //--------------------------------------------------------------

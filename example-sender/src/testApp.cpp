@@ -1,9 +1,5 @@
 #include "testApp.h"
 
-#include "ofxPublishScreen.h"
-
-ofxPublishScreen::Publisher pub;
-
 //--------------------------------------------------------------
 void testApp::setup()
 {
@@ -20,7 +16,7 @@ void testApp::update()
 {
 	pub.begin();
 	ofClear(ofRandom(255), ofRandom(255), ofRandom(255));
-	ofCircle(ofGetMouseX(), ofGetMouseY(), 100);
+//	ofCircle(ofGetMouseX(), ofGetMouseY(), 100);
 	pub.end();
 }
 

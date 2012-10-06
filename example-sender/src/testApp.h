@@ -2,6 +2,8 @@
 
 #include "ofMain.h"
 
+#include "ofxPublishScreen.h"
+
 class testApp : public ofBaseApp
 {
 public:
@@ -18,4 +20,6 @@ public:
 	void windowResized(int w, int h);
 	void dragEvent(ofDragInfo dragInfo);
 	void gotMessage(ofMessage msg);
+	
+	ofxPublishScreen::FboPublisher pub;
 };
