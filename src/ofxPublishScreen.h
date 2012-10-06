@@ -10,28 +10,52 @@ namespace ofxPublishScreen {
 	{
 	public:
 		
+		Publisher() : thread(NULL) {}
 		virtual ~Publisher();
 		
 		void setup(int port, ofImageFormat format_ = OF_IMAGE_FORMAT_BMP);
 		void dispose();
 		
 		void publishScreen();
-		
 		void publishPixels(const ofPixels &pix);
 		void publishTexture(ofTexture* inputTexture);
 		
-		void setImageCompressionFormat(ofImageFormat v) { format = v; }
+		float getFps();
 		
 		void onExit(ofEventArgs&);
 		
 	protected:
 		
-		ofImageFormat format;
-		ofxZmqPublisher pub;
-		
-		class SenderThread;
-		SenderThread *sender_thread;
+		class Thread;
+		Thread *thread;
 	};
+	
+	class Subscriber
+	{
+	public:
+		
+		Subscriber() : thread(NULL) {}
+		
+		void setup(string host, int port);
+		void dispose();
+		
+		void update();
+
+		bool isFrameNew() { return is_frame_new; }
+		const ofPixelsRef getPixelsRef() { return pix; }
+		
+		float getFps();
+		
+	protected:
+		
+		ofImage pix;
+		bool is_frame_new;
+		
+		class Thread;
+		Thread *thread;
+	};
+	
+	
 	
 	class FboPublisher : public Publisher
 	{
@@ -48,7 +72,7 @@ namespace ofxPublishScreen {
 			
 			Publisher::setup(port, format);
 		}
-
+		
 		void draw(int x = 0, int y = 0)
 		{
 			fbo.draw(0, 0);
@@ -66,7 +90,7 @@ namespace ofxPublishScreen {
 			fbo.end();
 			publishTexture(&fbo.getTextureReference());
 		}
-
+		
 		float getWidth() { return fbo.getWidth(); }
 		float getHeight() { return fbo.getHeight(); }
 		
@@ -74,31 +98,5 @@ namespace ofxPublishScreen {
 		
 		ofFbo fbo;
 	};
-	
-	class Subscriber
-	{
-	public:
-		
-		Subscriber() : receiver_thread(NULL) {}
-		
-		void setup(string host, int port);
-		void dispose();
-		
-		void update();
-		
-		void draw(int x = 0, int y = 0);
-		
-		ofImage& getImage() { return image; }
-		
-	protected:
-		
-		ofImage image;
-		ofxZmqSubscriber subs;
-		float last_subs_time;
-		float subs_fps;
-		
-		class ReceiverThread;
-		ReceiverThread *receiver_thread;
-	};
-	
+
 }

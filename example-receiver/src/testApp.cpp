@@ -3,13 +3,11 @@
 #include "ofxPublishScreen.h"
 
 ofxPublishScreen::Subscriber subs;
+ofImage image;
 
 //--------------------------------------------------------------
 void testApp::setup()
 {
-//	ofSetFrameRate(60);
-//	ofSetVerticalSync(true);
-	
 	ofBackground(30);
 	
 	subs.setup("localhost", 20000);
@@ -19,14 +17,18 @@ void testApp::setup()
 void testApp::update()
 {
 	subs.update();
+	if (subs.isFrameNew())
+	{
+		image.setFromPixels(subs.getPixelsRef());
+	}
 	
-	ofSetWindowTitle(ofToString(ofGetFrameRate(), 2));
+	ofSetWindowTitle(ofToString(subs.getFps(), 2));
 }
 
 //--------------------------------------------------------------
 void testApp::draw()
 {
-	subs.draw();
+	image.draw(0, 0);
 }
 
 //--------------------------------------------------------------

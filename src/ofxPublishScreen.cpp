@@ -2,19 +2,14 @@
 
 #pragma mark - Publisher
 
-class ofxPublishScreen::Publisher::SenderThread : public ofThread
+class ofxPublishScreen::Publisher::Thread : public ofThread
 {
 public:
 	
-	SenderThread()
+	Thread(string host, ofImageFormat format) : format(format)
 	{
-		
-	}
-	
-	void setup(ofxZmqPublisher *pub_, ofImageFormat format_)
-	{
-		pub = pub_;
-		format = format_;
+		pub.setHighWaterMark(1);
+		pub.bind(host);
 	}
 	
 	void pushImage(const ofPixels &pix)
@@ -26,15 +21,19 @@ public:
 		}
 	}
 	
+	float getFps() { return pubs_fps; }
+	
 protected:
 	
-	ofxZmqPublisher *pub;
+	ofxZmqPublisher pub;
 	queue<ofPixels, list<ofPixels> > frames;
 	ofImageFormat format;
 	ofxTurboJpeg jpeg;
 	
-	float publish_fps;
-	float last_published_time;
+	float pubs_fps;
+	float last_pubs_time;
+	
+	float compress_time_ms;
 	
 	void threadedFunction()
 	{
@@ -52,12 +51,24 @@ protected:
 				}
 				
 				ofBuffer data;
-				jpeg.save(data, pix,  75);
+				{
+					float comp_start = ofGetElapsedTimeMillis();
+					jpeg.save(data, pix,  75);
+					float d = ofGetElapsedTimeMillis() - comp_start;
+					compress_time_ms += (d - compress_time_ms) * 0.1;
+				}
 				
-				// send timestamp
+				// TODO: send timestamp
 //				float t = ofGetElapsedTimef();
 //				pub->send(&t, sizeof(float), true, true);
-				pub->send(data, true);
+				pub.send(data, true);
+				
+				float t = ofGetElapsedTimef();
+				float d = t - last_pubs_time;
+				d = 1. / d;
+				
+				pubs_fps += (d - pubs_fps) * 0.1;
+				last_pubs_time = t;
 			}
 			
 			ofSleepMillis(1);
@@ -65,31 +76,25 @@ protected:
 	}
 };
 
-void ofxPublishScreen::Publisher::setup(int port, ofImageFormat format_)
+void ofxPublishScreen::Publisher::setup(int port, ofImageFormat format)
 {
 	dispose();
 	
 	char buf[256];
 	sprintf(buf, "tcp://*:%i", port);
-	
-	pub.setHighWaterMark(1);
-	pub.bind(buf);
-	
-	format = format_;
-	
-	sender_thread = new SenderThread;
-	sender_thread->setup(&pub, format);
-	sender_thread->startThread();
+		
+	thread = new Thread(buf, format);
+	thread->startThread();
 	
 	ofAddListener(ofEvents().exit, this, &Publisher::onExit);
 }
 
 void ofxPublishScreen::Publisher::dispose()
 {
-	if (sender_thread)
+	if (thread)
 	{
-		SenderThread *t = sender_thread;
-		sender_thread = NULL;
+		Thread *t = thread;
+		thread = NULL;
 		t->stopThread(true);
 		delete t;
 	}
@@ -107,7 +112,6 @@ void ofxPublishScreen::Publisher::publishScreen()
 	
 	ofTexture tex;
 	tex.allocate(w, h, GL_RGBA);
-	
 	tex.loadScreenData(0, 0, w, h);
 	
 	publishTexture(&tex);
@@ -117,7 +121,7 @@ void ofxPublishScreen::Publisher::publishScreen()
 
 void ofxPublishScreen::Publisher::publishPixels(const ofPixels &pix)
 {
-	sender_thread->pushImage(pix);
+	thread->pushImage(pix);
 }
 
 void ofxPublishScreen::Publisher::publishTexture(ofTexture* inputTexture)
@@ -132,32 +136,39 @@ void ofxPublishScreen::Publisher::onExit(ofEventArgs&)
 	dispose();
 }
 
+float ofxPublishScreen::Publisher::getFps()
+{
+	return thread->getFps();
+}
+
 #pragma mark - Subscriber
 
-class ofxPublishScreen::Subscriber::ReceiverThread : public ofThread
+class ofxPublishScreen::Subscriber::Thread : public ofThread
 {
 public:
 	
-	ofxZmqSubscriber *subs;
+	ofxZmqSubscriber subs;
 	ofPixels pix;
 	ofxTurboJpeg jpeg;
 	
-	bool has_new_pixels;
+	bool is_frame_new;
+	float last_subs_time;
+	float subs_fps;
 	
-	void setup(ofxZmqSubscriber *subs_)
+	Thread(string host) : is_frame_new(false), last_subs_time(0), subs_fps(0)
 	{
-		has_new_pixels = false;
-		subs = subs_;
+		subs.setHighWaterMark(2);
+		subs.connect(host);
 	}
 	
 	void threadedFunction()
 	{
 		while (isThreadRunning())
 		{
-			while (subs->hasWaitingMessage())
+			while (subs.hasWaitingMessage())
 			{
 				ofBuffer data;
-				subs->getNextMessage(data);
+				subs.getNextMessage(data);
 				
 				ofPixels temp;
 				if (jpeg.load(data, temp))
@@ -165,14 +176,25 @@ public:
 					if (lock())
 					{
 						pix = temp;
-						has_new_pixels = true;
+						is_frame_new = true;
 						unlock();
+						
+						float d = ofGetElapsedTimef() - last_subs_time;
+						d = 1. / d;
+						
+						subs_fps += (d - subs_fps) * 0.1;
+						last_subs_time = ofGetElapsedTimef();
 					}
 				}
 			}
 			
 			ofSleepMillis(1);
 		}
+	}
+	
+	float getFps()
+	{
+		return subs_fps;
 	}
 
 };
@@ -184,48 +206,39 @@ void ofxPublishScreen::Subscriber::setup(string host, int port)
 	char buf[256];
 	sprintf(buf, "tcp://%s:%i", host.c_str(), port);
 	
-	subs.setHighWaterMark(2);
-	subs.connect(buf);
-	
-	receiver_thread = new ReceiverThread;
-	receiver_thread->setup(&subs);
-	receiver_thread->startThread();
-	
-	last_subs_time = 0;
-	subs_fps = 0;
+	thread = new Thread(buf);
+	thread->startThread();
 }
 
 void ofxPublishScreen::Subscriber::dispose()
 {
-	if (receiver_thread)
+	if (thread)
 	{
-		delete receiver_thread;
-		receiver_thread = NULL;
+		Thread *t = thread;
+		thread = NULL;
+		t->stopThread(true);
+		delete t;
 	}
 }
 
 void ofxPublishScreen::Subscriber::update()
 {
-	if (receiver_thread->lock())
+	is_frame_new = false;
+	
+	if (thread->lock())
 	{
-		if (receiver_thread->has_new_pixels)
+		if (thread->is_frame_new)
 		{
-			receiver_thread->has_new_pixels = false;
-			image.setFromPixels(receiver_thread->pix);
-			
-			float d = ofGetElapsedTimef() - last_subs_time;
-			d = 1. / d;
-			
-			subs_fps += (d - subs_fps) * 0.1;
-			
-			last_subs_time = ofGetElapsedTimef();
+			thread->is_frame_new = false;
+			pix = thread->pix;
 		}
-		receiver_thread->unlock();
+		thread->unlock();
+		
+		is_frame_new = true;
 	}
 }
 
-void ofxPublishScreen::Subscriber::draw(int x, int y)
+float ofxPublishScreen::Subscriber::getFps()
 {
-	if (image.isAllocated())
-		image.draw(x, y);
+	return thread->getFps();	
 }

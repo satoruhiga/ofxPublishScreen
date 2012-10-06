@@ -1,5 +1,11 @@
 #include "testApp.h"
 
+#include "ofxPublishScreen.h"
+
+ofColor color;
+
+ofxPublishScreen::FboPublisher pub;
+
 //--------------------------------------------------------------
 void testApp::setup()
 {
@@ -8,16 +14,18 @@ void testApp::setup()
 	
 	ofBackground(30);
 	
-	pub.setup(20000, 1024, 768);
+	pub.setup(20000, 1280, 720);
 }
 
 //--------------------------------------------------------------
 void testApp::update()
 {
 	pub.begin();
-	ofClear(ofRandom(255), ofRandom(255), ofRandom(255));
-//	ofCircle(ofGetMouseX(), ofGetMouseY(), 100);
+	ofClear(color.r, color.g, color.b);
+	ofCircle(ofGetMouseX(), ofGetMouseY(), 100);
 	pub.end();
+	
+	ofSetWindowTitle(ofToString(pub.getFps(), 2));
 }
 
 //--------------------------------------------------------------
@@ -29,7 +37,9 @@ void testApp::draw()
 //--------------------------------------------------------------
 void testApp::keyPressed(int key)
 {
-
+	color.r = ofRandom(255);
+	color.g = ofRandom(255);
+	color.b = ofRandom(255);
 }
 
 //--------------------------------------------------------------
