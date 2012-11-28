@@ -90,7 +90,8 @@ void ofxPublishScreen::Publisher::dispose()
 	{
 		SenderThread *t = sender_thread;
 		sender_thread = NULL;
-		t->stopThread(true);
+		// t->stopThread(true);
+		t->stopThread();
 		delete t;
 	}
 }
