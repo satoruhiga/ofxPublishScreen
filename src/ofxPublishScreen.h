@@ -10,6 +10,7 @@ namespace ofxPublishScreen {
 	{
 	public:
 		
+		Publisher() : sender_thread(NULL) {}
 		virtual ~Publisher();
 		
 		void setup(int port, ofImageFormat format_ = OF_IMAGE_FORMAT_BMP);
