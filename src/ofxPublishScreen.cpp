@@ -6,7 +6,7 @@ class ofxPublishScreen::Publisher::Thread : public ofThread
 {
 public:
 
-	Thread(string host, ofImageFormat format) : format(format), last_pubs_time(0), pubs_fps(0), compress_time_ms(0)
+	Thread(string host, int jpeg_quality) : last_pubs_time(0), pubs_fps(0), compress_time_ms(0), jpeg_quality(jpeg_quality)
 	{
 		pub.setHighWaterMark(1);
 		pub.bind(host);
@@ -23,12 +23,17 @@ public:
 
 	float getFps() { return pubs_fps; }
 	
+	int getJpegQuality() { return jpeg_quality; }
+	void setJpegQuality(int v) { jpeg_quality = v; }
+
 protected:
 	
 	ofxZmqPublisher pub;
-	queue<ofPixels, list<ofPixels> > frames;
-	ofImageFormat format;
 	ofxTurboJpeg jpeg;
+	
+	queue<ofPixels, list<ofPixels> > frames;
+
+	int jpeg_quality;
 	
 	float pubs_fps;
 	float last_pubs_time;
@@ -54,7 +59,7 @@ protected:
 
 				{
 					float comp_start = ofGetElapsedTimeMillis();
-					jpeg.save(data, pix,  75);
+					jpeg.save(data, pix,  jpeg_quality);
 					float d = ofGetElapsedTimeMillis() - comp_start;
 					compress_time_ms += (d - compress_time_ms) * 0.1;
 				}
@@ -74,14 +79,14 @@ protected:
 	}
 };
 
-void ofxPublishScreen::Publisher::setup(int port, ofImageFormat format)
+void ofxPublishScreen::Publisher::setup(int port, int jpeg_quality)
 {
 	dispose();
 
 	char buf[256];
 	sprintf(buf, "tcp://*:%i", port);
 
-	thread = new Thread(buf, format);
+	thread = new Thread(buf, jpeg_quality);
 	thread->startThread();
 	
 	ofAddListener(ofEvents().exit, this, &Publisher::onExit);
@@ -93,7 +98,7 @@ void ofxPublishScreen::Publisher::dispose()
 	{
 		Thread *t = thread;
 		thread = NULL;
-		t->stopThread();
+		t->waitForThread(true);
 		delete t;
 	}
 }
@@ -127,6 +132,16 @@ void ofxPublishScreen::Publisher::publishTexture(ofTexture* inputTexture)
 	ofPixels pix;
 	inputTexture->readToPixels(pix);
 	publishPixels(pix);
+}
+
+int ofxPublishScreen::Publisher::getJpegQuality()
+{
+	return thread->getJpegQuality();
+}
+
+void ofxPublishScreen::Publisher::setJpegQuality(int v)
+{
+	thread->setJpegQuality(v);
 }
 
 void ofxPublishScreen::Publisher::onExit(ofEventArgs&)
@@ -214,7 +229,7 @@ void ofxPublishScreen::Subscriber::dispose()
 	{
 		Thread *t = thread;
 		thread = NULL;
-		t->stopThread();
+		t->waitForThread(true);
 		delete t;
 	}
 }

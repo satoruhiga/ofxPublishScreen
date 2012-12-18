@@ -13,7 +13,7 @@ namespace ofxPublishScreen {
 		Publisher() : thread(NULL) {}
 		virtual ~Publisher();
 		
-		void setup(int port, ofImageFormat format_ = OF_IMAGE_FORMAT_BMP);
+		void setup(int port, int jpeg_quality = 75);
 		void dispose();
 		
 		void publishScreen();
@@ -21,6 +21,9 @@ namespace ofxPublishScreen {
 		void publishTexture(ofTexture* inputTexture);
 		
 		float getFps();
+		
+		int getJpegQuality();
+		void setJpegQuality(int v);
 		
 		void onExit(ofEventArgs&);
 		
@@ -55,13 +58,11 @@ namespace ofxPublishScreen {
 		Thread *thread;
 	};
 	
-	
-	
 	class FboPublisher : public Publisher
 	{
 	public:
 		
-		void setup(int port, int w, int h, int internalformat = GL_RGB, ofImageFormat format = OF_IMAGE_FORMAT_BMP)
+		void setup(int port, int w, int h, int internalformat = GL_RGB, int jpeg_quality = 75)
 		{
 			ofFbo::Settings s = ofFbo::Settings();
 			s.width = w;
@@ -70,17 +71,22 @@ namespace ofxPublishScreen {
 			s.useDepth = true;
 			fbo.allocate(s);
 			
-			Publisher::setup(port, format);
+			Publisher::setup(port, jpeg_quality);
 		}
 		
 		void draw(int x = 0, int y = 0)
 		{
-			fbo.draw(0, 0);
+			fbo.draw(x, y);
+		}
+		
+		void draw(int x, int y, int width, int height)
+		{
+			fbo.draw(x, y, width, height);
 		}
 		
 		void begin()
 		{
-			fbo.begin(false);
+			fbo.begin();
 			ofFloatColor bg = ofGetCurrentRenderer()->getBgColor();
 			ofClear(bg.r * 255, bg.g * 255, bg.b * 255);
 		}
@@ -93,6 +99,8 @@ namespace ofxPublishScreen {
 		
 		float getWidth() { return fbo.getWidth(); }
 		float getHeight() { return fbo.getHeight(); }
+		
+		ofFbo& getFbo() { return fbo; }
 		
 	protected:
 		
