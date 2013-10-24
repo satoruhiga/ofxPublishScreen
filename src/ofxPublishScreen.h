@@ -11,9 +11,9 @@ namespace ofxPublishScreen {
 	public:
 		
 		Publisher() : thread(NULL) {}
-		virtual ~Publisher();
+		virtual ~Publisher() { dispose(); }
 		
-		void setup(int port, int jpeg_quality = 75);
+		void setup(int port, int jpeg_quality = 90);
 		void dispose();
 		
 		void publishScreen();
@@ -38,6 +38,7 @@ namespace ofxPublishScreen {
 	public:
 		
 		Subscriber() : thread(NULL) {}
+		virtual ~Subscriber() { dispose(); }
 		
 		void setup(string host, int port);
 		void dispose();
@@ -62,7 +63,7 @@ namespace ofxPublishScreen {
 	{
 	public:
 		
-		void setup(int port, int w, int h, int internalformat = GL_RGB, int jpeg_quality = 75)
+		void setup(int port, int w, int h, int internalformat = GL_RGB, int jpeg_quality = 90)
 		{
 			ofFbo::Settings s = ofFbo::Settings();
 			s.width = w;

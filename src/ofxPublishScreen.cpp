@@ -2,6 +2,8 @@
 
 #pragma mark - Publisher
 
+typedef ofPtr<ofPixels> PixelsRef;
+
 class ofxPublishScreen::Publisher::Thread : public ofThread
 {
 public:
@@ -14,9 +16,11 @@ public:
 
 	void pushImage(const ofPixels &pix)
 	{
+		PixelsRef p = PixelsRef(new ofPixels(pix));
+		
 		if (lock())
 		{
-			frames.push(pix);
+			frames.push(p);
 			unlock();
 		}
 	}
@@ -31,7 +35,7 @@ protected:
 	ofxZmqPublisher pub;
 	ofxTurboJpeg jpeg;
 	
-	queue<ofPixels, list<ofPixels> > frames;
+	queue<PixelsRef> frames;
 
 	int jpeg_quality;
 	
@@ -44,22 +48,25 @@ protected:
 	{
 		while (isThreadRunning())
 		{
-			while (!frames.empty() && isThreadRunning())
+			while (isThreadRunning())
 			{
-				ofPixels pix;
-
-				if (lock())
+				lock();
+				if (frames.empty())
 				{
-					pix = frames.front();
-					frames.pop();
+					sleep(1);
 					unlock();
+					continue;
 				}
+				
+				PixelsRef pix = frames.front();
+				frames.pop();
+				unlock();
 
 				ofBuffer data;
 
 				{
 					float comp_start = ofGetElapsedTimeMillis();
-					jpeg.save(data, pix,  jpeg_quality);
+					jpeg.save(data, *pix.get(),  jpeg_quality);
 					float d = ofGetElapsedTimeMillis() - comp_start;
 					compress_time_ms += (d - compress_time_ms) * 0.1;
 				}
@@ -73,8 +80,6 @@ protected:
 				pubs_fps += (d - pubs_fps) * 0.1;
 				last_pubs_time = t;
 			}
-
-			ofSleepMillis(1);
 		}
 	}
 };
@@ -103,18 +108,14 @@ void ofxPublishScreen::Publisher::dispose()
 	}
 }
 
-ofxPublishScreen::Publisher::~Publisher()
-{
-	dispose();
-}
-
 void ofxPublishScreen::Publisher::publishScreen()
 {
 	int w = ofGetWidth();
 	int h = ofGetHeight();
 
 	ofTexture tex;
-	tex.allocate(w, h, GL_RGBA);
+	tex.getTextureData().bFlipTexture = false;
+	tex.allocate(w, h, GL_RGB);
 	tex.loadScreenData(0, 0, w, h);
 
 	publishTexture(&tex);
@@ -186,18 +187,16 @@ public:
 				ofPixels temp;
 				if (jpeg.load(data, temp))
 				{
-					if (lock())
-					{
-						pix = temp;
-						is_frame_new = true;
-						unlock();
-						
-						float d = ofGetElapsedTimef() - last_subs_time;
-						d = 1. / d;
-						
-						subs_fps += (d - subs_fps) * 0.1;
-						last_subs_time = ofGetElapsedTimef();
-					}
+					lock();
+					pix = temp;
+					is_frame_new = true;
+					unlock();
+					
+					float d = ofGetElapsedTimef() - last_subs_time;
+					d = 1. / d;
+					
+					subs_fps += (d - subs_fps) * 0.1;
+					last_subs_time = ofGetElapsedTimef();
 				}
 			}
 			
