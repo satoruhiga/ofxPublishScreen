@@ -171,7 +171,7 @@ public:
 	
 	Thread(string host) : is_frame_new(false), last_subs_time(0), subs_fps(0)
 	{
-		subs.setHighWaterMark(2);
+		subs.setHighWaterMark(1);
 		subs.connect(host);
 	}
 
@@ -179,11 +179,15 @@ public:
 	{
 		while (isThreadRunning())
 		{
+			ofBuffer data;
+			
 			while (subs.hasWaitingMessage())
 			{
-				ofBuffer data;
 				subs.getNextMessage(data);
-
+			}
+			
+			if (data.size())
+			{
 				ofPixels temp;
 				if (jpeg.load(data, temp))
 				{
